@@ -37,7 +37,7 @@ object AppConfig {
 
     val serviceList = services.getOrElse(Seq()) map (v => {
       val (key, alias) = v
-      getDatabaseConfSingle(key, alias)
+      getServiceConfEntry(key, alias)
     })
 
     val result = Future.sequence(confList ++ serviceList)
@@ -46,8 +46,8 @@ object AppConfig {
   }
 
   // 获得数据库的配置。主要的键有两个：host和port
-  private def getDatabaseConfSingle(serviceName: String, alias: String)
-                                   (implicit executor: ExecutionContext): Future[Config] = {
+  private def getServiceConfEntry(serviceName: String, alias: String)
+                                 (implicit executor: ExecutionContext): Future[Config] = {
     val (etcdHost, etcdPort) = getEtcdProperties
     val reqUrl = s"http://$etcdHost:$etcdPort/v2/keys/backends/$serviceName?recursive=true"
 
@@ -63,18 +63,23 @@ object AppConfig {
       }
     }
 
+    // 从一个节点，得到以下形式的HashMap：("mongo": {"a521fe": {"host": "..", "port": 1234}})
+    def buildEntry(node: JsonNode): (String, JavaMap[String, Any]) = {
+      val key = node.get("key").asText().split("/").last
+      val tmp = node.get("value").asText().split(":")
+      val host = tmp(0)
+      val port = tmp(1).toInt
+
+      key -> Map("host"->host, "port"->port)
+    }
+
     response map (body => {
       val mapper = new ObjectMapper() with ScalaObjectMapper
       mapper.registerModule(DefaultScalaModule)
       val confNode = mapper.readValue[JsonNode](body)
 
-      val dbConf = confNode.get("node").get("nodes").head.get("value").asText()
-      val tmp = dbConf.split(":")
-      val host = tmp(0)
-      val port = tmp(1).toInt
-
-      val innerMap: JavaMap[String, Any] = Map("host" -> host, "port" -> port)
-      val outerMap: JavaMap[String, Any] = Map(alias -> innerMap)
+      val innerMap: JavaMap[String, Any] = Map(confNode.get("node").get("nodes").toSeq map buildEntry:_*)
+      val outerMap:JavaMap[String, Any] = Map(alias-> innerMap)
 
       ConfigFactory.parseMap(Map("backends" -> outerMap))
     })
