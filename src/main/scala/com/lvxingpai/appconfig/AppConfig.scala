@@ -70,7 +70,7 @@ object AppConfig {
       val host = tmp(0)
       val port = tmp(1).toInt
 
-      key -> Map("host"->host, "port"->port)
+      key -> Map("host" -> host, "port" -> port)
     }
 
     response map (body => {
@@ -78,8 +78,10 @@ object AppConfig {
       mapper.registerModule(DefaultScalaModule)
       val confNode = mapper.readValue[JsonNode](body)
 
-      val innerMap: JavaMap[String, Any] = Map(confNode.get("node").get("nodes").toSeq map buildEntry:_*)
-      val outerMap:JavaMap[String, Any] = Map(alias-> innerMap)
+      val innerMap: JavaMap[String, String] = Map(confNode.get("node").get("nodes").toSeq map (jn => {
+        jn.get("key").asText().split("/").last -> jn.get("value").asText()
+      }): _*)
+      val outerMap: JavaMap[String, Any] = Map(alias -> innerMap)
 
       ConfigFactory.parseMap(Map("backends" -> outerMap))
     })
