@@ -71,17 +71,12 @@ object AppConfig {
       val dbConf = confNode.get("node").get("nodes").head.get("value").asText()
       val tmp = dbConf.split(":")
       val host = tmp(0)
-      val port = Int.box(tmp(1).toInt)
+      val port = tmp(1).toInt
 
-      val config = ConfigFactory.empty()
+      val innerMap: JavaMap[String, Any] = Map("host" -> host, "port" -> port)
+      val outerMap: JavaMap[String, Any] = Map(alias -> innerMap)
 
-      val innerMap = new java.util.HashMap[String, Object]()
-      innerMap.put("host", host)
-      innerMap.put("port", port)
-
-      val m = new java.util.HashMap[String, Object]()
-      m.put(alias, innerMap)
-      ConfigFactory.parseMap(m)
+      ConfigFactory.parseMap(Map("backends" -> outerMap))
     })
   }
 
