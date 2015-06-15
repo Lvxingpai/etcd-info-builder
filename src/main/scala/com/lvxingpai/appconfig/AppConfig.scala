@@ -2,6 +2,7 @@ package com.lvxingpai.appconfig
 
 import java.io.{BufferedReader, InputStreamReader}
 import java.net.URL
+import java.util.{Map => JavaMap}
 
 import com.fasterxml.jackson.databind.{JsonNode, ObjectMapper}
 import com.fasterxml.jackson.module.scala.DefaultScalaModule
@@ -15,6 +16,16 @@ import scala.concurrent.{ExecutionContext, Future}
  * Created by zephyre on 5/18/15.
  */
 object AppConfig {
+
+  /**
+   * 默认的配置（从命令行变量和application.conf文件中读取，不访问etcd数据库）
+   */
+  lazy val defaultConfig = {
+    val m: JavaMap[String, Any] = Map("host" -> "etcd", "port" -> 2379)
+    val etcdDefaults = ConfigFactory.parseMap(Map("etcd" -> m))
+    ConfigFactory.load().withFallback(etcdDefaults)
+  }
+
   def buildConfig(confKeys: Option[Seq[(String, String)]] = None, services: Option[Seq[(String, String)]] = None)
                  (implicit executor: ExecutionContext): Future[Config] = {
     val defaultConfig = ConfigFactory.load()
@@ -79,10 +90,8 @@ object AppConfig {
    * @return
    */
   private def getEtcdProperties: (String, Int) = {
-    val defaultHost = "etcd"
-    val defaultPort = "2379"
-    val etcdHost = System.getProperty("etcd.host", defaultHost)
-    val etcdPort = System.getProperty("etcd.port", defaultPort).toInt
+    val etcdHost = defaultConfig.getString("etcd.host")
+    val etcdPort = defaultConfig.getInt("etcd.port")
     (etcdHost, etcdPort)
   }
 
@@ -177,7 +186,7 @@ object AppConfig {
       } yield conf
 
       val innerMap = new java.util.HashMap[String, Object]()
-      confList foreach (v=>{
+      confList foreach (v => {
         val (key, value) = v
         innerMap.put(key, value)
       })
