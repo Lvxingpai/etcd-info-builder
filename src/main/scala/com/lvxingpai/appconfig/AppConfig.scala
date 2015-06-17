@@ -28,8 +28,6 @@ object AppConfig {
 
   def buildConfig(confKeys: Option[Seq[(String, String)]] = None, services: Option[Seq[(String, String)]] = None)
                  (implicit executor: ExecutionContext): Future[Config] = {
-    val defaultConfig = ConfigFactory.load()
-
     val confList = confKeys.getOrElse(Seq()) map (v => {
       val (key, alias) = v
       buildConfigSingle(key, alias)
