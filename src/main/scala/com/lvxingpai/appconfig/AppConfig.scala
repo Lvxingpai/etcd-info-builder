@@ -7,7 +7,7 @@ import java.util.{Map => JavaMap}
 import com.fasterxml.jackson.databind.{JsonNode, ObjectMapper}
 import com.fasterxml.jackson.module.scala.DefaultScalaModule
 import com.fasterxml.jackson.module.scala.experimental.ScalaObjectMapper
-import com.typesafe.config.{Config, ConfigFactory}
+import com.typesafe.config.{Config, ConfigFactory, ConfigValueFactory}
 
 import scala.collection.JavaConversions._
 import scala.concurrent.{ExecutionContext, Future}
@@ -20,9 +20,12 @@ object AppConfig {
   /**
    * 默认的配置（从命令行变量和application.conf文件中读取，不访问etcd数据库）
    */
-  lazy val defaultConfig = {
-    val m: JavaMap[String, Any] = Map("host" -> "etcd", "port" -> 2379)
-    val etcdDefaults = ConfigFactory.parseMap(Map("etcd" -> m))
+  lazy val defaultConfig = buildDefaultConfig()
+
+  def buildDefaultConfig() = {
+    val etcdDefaults = ConfigFactory.empty()
+      .withValue("etcd.host", ConfigValueFactory.fromAnyRef("etcd"))
+      .withValue("etcd.port", ConfigValueFactory.fromAnyRef(2379))
     ConfigFactory.load().withFallback(etcdDefaults)
   }
 
