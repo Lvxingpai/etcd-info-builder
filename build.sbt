@@ -2,7 +2,7 @@ name := """appconfig"""
 
 organization := "com.lvxingpai"
 
-version := "0.2.0"
+version := "0.2.1"
 
 crossScalaVersions := "2.10.4" :: "2.11.4" :: Nil
 

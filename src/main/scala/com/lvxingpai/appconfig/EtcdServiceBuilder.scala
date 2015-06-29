@@ -2,7 +2,7 @@ package com.lvxingpai.appconfig
 
 import java.util.{HashMap => JMap}
 
-import com.typesafe.config.Config
+import com.typesafe.config.{Config, ConfigFactory}
 
 import scala.concurrent.Future
 import scala.language.implicitConversions
@@ -42,6 +42,8 @@ class EtcdServiceBuilder(val etcdHost: String,
 
     val future = Future.sequence(nodes) map (configList => {
       configList.reduce((c1, c2) => c1.withFallback(c2))
+    }) map (c => {
+      ConfigFactory.empty().withValue("backends", c.root())
     })
     future
   }
