@@ -24,14 +24,16 @@ class EtcdServiceBuilder(val etcdHost: String,
   override def build(): Future[Config] = {
     import scala.concurrent.ExecutionContext.Implicits.global
 
-    implicit val fnMapper: (String, String) => AnyRef = (_, value) => {
+    implicit val fnMapper: (String, String) => AnyRef = (key, value) => {
       val tmp = value.split(":")
       val host = tmp.head
       val port = tmp.last
       val m = new JMap[String, AnyRef]()
       m.put("host", host)
       m.put("port", Integer.valueOf(port))
-      m
+      val ret = new JMap[String, AnyRef]()
+      ret.put(key, m)
+      ret
     }
 
     val nodes = keys map (entry => {
