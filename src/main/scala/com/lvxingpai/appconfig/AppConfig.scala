@@ -1,71 +1,32 @@
 package com.lvxingpai.appconfig
 
-import java.io.{BufferedReader, InputStreamReader}
+import java.io.{ BufferedReader, InputStreamReader }
 import java.net.URL
+import java.util.{ Map => JavaMap }
 
-import com.fasterxml.jackson.databind.{JsonNode, ObjectMapper}
+import com.fasterxml.jackson.databind.{ JsonNode, ObjectMapper }
 import com.fasterxml.jackson.module.scala.DefaultScalaModule
 import com.fasterxml.jackson.module.scala.experimental.ScalaObjectMapper
-import com.typesafe.config.{Config, ConfigFactory}
+import com.typesafe.config.{ Config, ConfigFactory, ConfigValueFactory }
 
 import scala.collection.JavaConversions._
-import scala.concurrent.{ExecutionContext, Future}
+import scala.concurrent.{ ExecutionContext, Future }
 
 /**
  * Created by zephyre on 5/18/15.
  */
 object AppConfig {
-  def buildConfig(confKeys: Option[Seq[String]]=None, services: Option[Seq[(String, String)]]=None)
-                 (implicit executor: ExecutionContext): Future[Config] = {
-    val defaultConfig = ConfigFactory.load()
 
-    val confList = confKeys.getOrElse(Seq()) map (key => buildConfigSingle(key)(executor))
-    val serviceList = services.getOrElse(Seq()) map getDatabaseConfSingle
-    val result = Future.sequence(confList ++ serviceList)
-    val conf = result map (_.reduceLeft(_.withFallback(_)))
-    conf map (_.withFallback(defaultConfig))
-  }
+  /**
+   * 默认的配置（从命令行变量和application.conf文件中读取，不访问etcd数据库）
+   */
+  lazy val defaultConfig = buildDefaultConfig()
 
-  // 获得数据库的配置。主要的键有两个：host和port
-  private def getDatabaseConfSingle(service: (String, String))(implicit executor: ExecutionContext): Future[Config] = {
-    val serviceName = service._1
-    val confKey = service._2
-
-    val (etcdHost, etcdPort) = getEtcdProperties
-    val reqUrl = s"http://$etcdHost:$etcdPort/v2/keys/backends/$serviceName?recursive=true"
-
-    var in: BufferedReader = null
-    val response = Future {
-      try {
-        val con = new URL(reqUrl).openConnection()
-        in = new BufferedReader(new InputStreamReader(con.getInputStream))
-        in.readLine()
-      } finally {
-        if (in != null)
-          in.close()
-      }
-    }(executor)
-
-    response map (body => {
-      val mapper = new ObjectMapper() with ScalaObjectMapper
-      mapper.registerModule(DefaultScalaModule)
-      val confNode = mapper.readValue[JsonNode](body)
-
-      val dbConf = confNode.get("node").get("nodes").head.get("value").asText()
-      val tmp = dbConf.split(":")
-      val host = tmp(0)
-      val port = Int.box(tmp(1).toInt)
-
-      val config = ConfigFactory.empty()
-
-      val innerMap = new java.util.HashMap[String, Object]()
-      innerMap.put("host", host)
-      innerMap.put("port", port)
-
-      val m = new java.util.HashMap[String, Object]()
-      m.put(confKey, innerMap)
-      ConfigFactory.parseMap(m)
-    })
+  def buildDefaultConfig() = {
+    val etcdDefaults = ConfigFactory.empty()
+      .withValue("etcd.host", ConfigValueFactory.fromAnyRef("etcd"))
+      .withValue("etcd.port", ConfigValueFactory.fromAnyRef(2379))
+    ConfigFactory.load().withFallback(etcdDefaults)
   }
 
   /**
@@ -73,10 +34,8 @@ object AppConfig {
    * @return
    */
   private def getEtcdProperties: (String, Int) = {
-    val defaultHost = "etcd"
-    val defaultPort = "2379"
-    val etcdHost = System.getProperty("etcd.host", defaultHost)
-    val etcdPort = System.getProperty("etcd.port", defaultPort).toInt
+    val etcdHost = defaultConfig.getString("etcd.host")
+    val etcdPort = defaultConfig.getInt("etcd.port")
     (etcdHost, etcdPort)
   }
 
@@ -144,31 +103,41 @@ object AppConfig {
   }
 
   // 从etcd数据库获取配置数据
-  private def buildConfigSingle(etcdKey: String)(implicit executor: ExecutionContext): Future[Config] = Future {
+  private def buildConfigSingle(etcdKey: String, alias: String)(implicit executor: ExecutionContext): Future[Config] = {
     val (etcdHost, etcdPort) = getEtcdProperties
     val reqUrl = s"http://$etcdHost:$etcdPort/v2/keys/project-conf/$etcdKey?recursive=true"
 
     var in: BufferedReader = null
-    val response = try {
-      val con = new URL(reqUrl).openConnection()
-      in = new BufferedReader(new InputStreamReader(con.getInputStream))
-      in.readLine()
-    } finally {
-      if (in != null)
-        in.close()
+    val response = Future {
+      try {
+        val con = new URL(reqUrl).openConnection()
+        in = new BufferedReader(new InputStreamReader(con.getInputStream))
+        in.readLine()
+      } finally {
+        if (in != null)
+          in.close()
+      }
     }
 
-    val mapper = new ObjectMapper() with ScalaObjectMapper
-    mapper.registerModule(DefaultScalaModule)
-    val confNode = mapper.readValue[JsonNode](response)
+    response map (body => {
+      val mapper = new ObjectMapper() with ScalaObjectMapper
+      mapper.registerModule(DefaultScalaModule)
+      val confNode = mapper.readValue[JsonNode](body)
 
-    val confList = for {
-      confEntry <- confNode.get("node").get("nodes")
-      conf <- buildConfNode(confEntry)
-    } yield conf
+      val confList = for {
+        confEntry <- confNode.get("node").get("nodes")
+        conf <- buildConfNode(confEntry)
+      } yield conf
 
-    val configMap = Map(confList.toSeq: _*)
+      val innerMap = new java.util.HashMap[String, Object]()
+      confList foreach (v => {
+        val (key, value) = v
+        innerMap.put(key, value)
+      })
 
-    ConfigFactory.parseMap(configMap)
-  }(executor)
+      val configMap = new java.util.HashMap[String, Object]()
+      configMap.put(alias, innerMap)
+      ConfigFactory.parseMap(configMap)
+    })
+  }
 }
