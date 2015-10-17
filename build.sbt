@@ -2,7 +2,7 @@ name := """appconfig"""
 
 organization := "com.lvxingpai"
 
-version := "0.2.1"
+version := "0.3.0"
 
 crossScalaVersions := "2.10.4" :: "2.11.4" :: Nil
 
@@ -28,3 +28,5 @@ publishTo := {
   else
     Some("publishReleases" at nexus + "releases")
 }
+
+scalariformSettings

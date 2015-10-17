@@ -1,8 +1,8 @@
 package com.lvxingpai.appconfig
 
-import java.util.{HashMap => JMap}
+import java.util.{ HashMap => JMap }
 
-import com.typesafe.config.{Config, ConfigFactory}
+import com.typesafe.config.{ Config, ConfigFactory }
 
 import scala.concurrent.Future
 import scala.language.implicitConversions
@@ -10,16 +10,18 @@ import scala.language.implicitConversions
 /**
  * Created by zephyre on 6/28/15.
  */
-class EtcdServiceBuilder(val etcdHost: String,
-                         val etcdPort: Int,
-                         val keys: Seq[(String, String)]) extends EtcdBuilder {
+class EtcdServiceBuilder(etcdHost: String,
+    etcdPort: Int,
+    val keys: Seq[(String, String)] = Seq()) extends EtcdBuilder {
 
   override val urlTemplate = s"http://$etcdHost:$etcdPort/v2/keys/backends/%s?recursive=true"
 
-  override def addKey(key: String, alias: String = null): EtcdServiceBuilder = {
-    val newKeys = this.keys :+ key -> (Option(alias) getOrElse key)
-    EtcdServiceBuilder(etcdHost -> etcdPort, newKeys)
+  override def addKey(key: String, alias: String): EtcdServiceBuilder = {
+    val newKeys = this.keys :+ key -> alias
+    EtcdServiceBuilder(etcdHost, etcdPort, newKeys)
   }
+
+  override def addKey(key: String): EtcdBuilder = addKey(key, key)
 
   override def build(): Future[Config] = {
     import scala.concurrent.ExecutionContext.Implicits.global
@@ -49,16 +51,10 @@ class EtcdServiceBuilder(val etcdHost: String,
     })
     future
   }
+
 }
 
 object EtcdServiceBuilder {
-  def apply(address: (String, Int) = null, keys: Seq[(String, String)] = Seq()): EtcdServiceBuilder = {
-    val addr = Option(address).getOrElse({
-      val etcdHost: String = Option(System.getenv("ETCD_HOST")) getOrElse "etcd"
-      val etcdPort: Int = (Option(System.getenv("ETCD_PORT")) getOrElse "2379").toInt
-      etcdHost -> etcdPort
-    })
-
-    new EtcdServiceBuilder(addr._1, addr._2, keys)
-  }
+  def apply(etcdHost: String, etcdPort: Int, keys: Seq[(String, String)] = Seq()) =
+    new EtcdServiceBuilder(etcdHost, etcdPort, keys)
 }

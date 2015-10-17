@@ -1,17 +1,17 @@
 package com.lvxingpai.appconfig
 
-import java.io.{BufferedReader, InputStreamReader}
+import java.io.{ BufferedReader, InputStreamReader }
 import java.net.URL
-import java.util.{HashMap => JMap}
+import java.util.{ HashMap => JMap }
 
 import com.fasterxml.jackson.databind.ObjectMapper
 import com.fasterxml.jackson.databind.module.SimpleModule
 import com.fasterxml.jackson.module.scala.DefaultScalaModule
 import com.fasterxml.jackson.module.scala.experimental.ScalaObjectMapper
-import com.lvxingpai.appconfig.json.{EtcdDeserializer, EtcdNode}
-import com.typesafe.config.{Config, ConfigFactory}
+import com.lvxingpai.appconfig.json.{ EtcdDeserializer, EtcdNode }
+import com.typesafe.config.{ Config, ConfigFactory }
 
-import scala.concurrent.{ExecutionContext, Future}
+import scala.concurrent.{ ExecutionContext, Future }
 
 /**
  * Created by zephyre on 6/28/15.
@@ -24,12 +24,13 @@ abstract class EtcdBuilder {
 
   def build(): Future[Config]
 
-  def addKey(key: String, alias: String = null): EtcdBuilder
+  def addKey(key: String, alias: String): EtcdBuilder
+
+  def addKey(key: String): EtcdBuilder
 
   // 从etcd数据库获取配置数据
-  protected def buildEntry(etcdKey: String, alias: String)
-                          (implicit executionContext: ExecutionContext,
-                           fnMapper: (String, String) => AnyRef): Future[Config] = {
+  protected def buildEntry(etcdKey: String, alias: String)(implicit executionContext: ExecutionContext,
+    fnMapper: (String, String) => AnyRef): Future[Config] = {
     val url = urlTemplate format etcdKey
     getUrl(url) map (body => {
       val mapper = new ObjectMapper() with ScalaObjectMapper
@@ -58,8 +59,7 @@ abstract class EtcdBuilder {
     ret
   }
 
-  protected def convert2Map(etcdNode: EtcdNode, overrideKey: Option[String] = None)
-                 (implicit fnMapper: (String, String) => AnyRef): JMap[String, _ <: AnyRef] = {
+  protected def convert2Map(etcdNode: EtcdNode, overrideKey: Option[String] = None)(implicit fnMapper: (String, String) => AnyRef): JMap[String, _ <: AnyRef] = {
     val mapKey = overrideKey getOrElse etcdNode.key
     if (etcdNode.dir) {
       val map = new JMap[String, AnyRef]()
@@ -67,8 +67,7 @@ abstract class EtcdBuilder {
       etcdNode.nodes foreach (n => map2.putAll(convert2Map(n)))
       map.put(mapKey, map2)
       map
-    }
-    else
+    } else
       fnMapper(mapKey, etcdNode.value).asInstanceOf[JMap[String, _ <: AnyRef]]
   }
 

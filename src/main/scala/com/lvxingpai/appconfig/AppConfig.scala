@@ -1,16 +1,16 @@
 package com.lvxingpai.appconfig
 
-import java.io.{BufferedReader, InputStreamReader}
+import java.io.{ BufferedReader, InputStreamReader }
 import java.net.URL
-import java.util.{Map => JavaMap}
+import java.util.{ Map => JavaMap }
 
-import com.fasterxml.jackson.databind.{JsonNode, ObjectMapper}
+import com.fasterxml.jackson.databind.{ JsonNode, ObjectMapper }
 import com.fasterxml.jackson.module.scala.DefaultScalaModule
 import com.fasterxml.jackson.module.scala.experimental.ScalaObjectMapper
-import com.typesafe.config.{Config, ConfigFactory, ConfigValueFactory}
+import com.typesafe.config.{ Config, ConfigFactory, ConfigValueFactory }
 
 import scala.collection.JavaConversions._
-import scala.concurrent.{ExecutionContext, Future}
+import scala.concurrent.{ ExecutionContext, Future }
 
 /**
  * Created by zephyre on 5/18/15.
@@ -27,65 +27,6 @@ object AppConfig {
       .withValue("etcd.host", ConfigValueFactory.fromAnyRef("etcd"))
       .withValue("etcd.port", ConfigValueFactory.fromAnyRef(2379))
     ConfigFactory.load().withFallback(etcdDefaults)
-  }
-
-  def buildConfig(confKeys: Option[Seq[(String, String)]] = None, services: Option[Seq[(String, String)]] = None)
-                 (implicit executor: ExecutionContext): Future[Config] = {
-    val confList = confKeys.getOrElse(Seq()) map (v => {
-      val (key, alias) = v
-      buildConfigSingle(key, alias)
-    })
-
-    val serviceList = services.getOrElse(Seq()) map (v => {
-      val (key, alias) = v
-      getServiceConfEntry(key, alias)
-    })
-
-    val result = Future.sequence(confList ++ serviceList)
-    val conf = result map (_.reduceLeft(_.withFallback(_)))
-    conf map (_.withFallback(defaultConfig))
-  }
-
-  // 获得数据库的配置。主要的键有两个：host和port
-  private def getServiceConfEntry(serviceName: String, alias: String)
-                                 (implicit executor: ExecutionContext): Future[Config] = {
-    val (etcdHost, etcdPort) = getEtcdProperties
-    val reqUrl = s"http://$etcdHost:$etcdPort/v2/keys/backends/$serviceName?recursive=true"
-
-    var in: BufferedReader = null
-    val response = Future {
-      try {
-        val con = new URL(reqUrl).openConnection()
-        in = new BufferedReader(new InputStreamReader(con.getInputStream))
-        in.readLine()
-      } finally {
-        if (in != null)
-          in.close()
-      }
-    }
-
-    // 从一个节点，得到以下形式的HashMap：("mongo": {"a521fe": {"host": "..", "port": 1234}})
-    def buildEntry(node: JsonNode): (String, JavaMap[String, Any]) = {
-      val key = node.get("key").asText().split("/").last
-      val tmp = node.get("value").asText().split(":")
-      val host = tmp(0)
-      val port = tmp(1).toInt
-
-      key -> Map("host" -> host, "port" -> port)
-    }
-
-    response map (body => {
-      val mapper = new ObjectMapper() with ScalaObjectMapper
-      mapper.registerModule(DefaultScalaModule)
-      val confNode = mapper.readValue[JsonNode](body)
-
-      val innerMap: JavaMap[String, String] = Map(confNode.get("node").get("nodes").toSeq map (jn => {
-        jn.get("key").asText().split("/").last -> jn.get("value").asText()
-      }): _*)
-      val outerMap: JavaMap[String, Any] = Map(alias -> innerMap)
-
-      ConfigFactory.parseMap(Map("backends" -> outerMap))
-    })
   }
 
   /**

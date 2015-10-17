@@ -1,10 +1,10 @@
 package com.lvxingpai.appconfig.json
 
 import com.fasterxml.jackson.core.JsonParser
-import com.fasterxml.jackson.databind.{DeserializationContext, JsonDeserializer, JsonNode}
+import com.fasterxml.jackson.databind.{ DeserializationContext, JsonDeserializer, JsonNode }
 
 import scala.collection.JavaConversions._
-import scala.language.{implicitConversions, postfixOps}
+import scala.language.{ implicitConversions, postfixOps }
 
 /**
  * Created by zephyre on 6/28/15.
