@@ -1,16 +1,16 @@
-name := """appconfig"""
+name := """etcd-store"""
 
 organization := "com.lvxingpai"
 
-version := "0.3.0"
+version := "0.4.0-SNAPSHOT"
 
 crossScalaVersions := "2.10.4" :: "2.11.4" :: Nil
 
 libraryDependencies ++= Seq(
-  "com.typesafe" % "config" % "1.2.1",
-  "com.fasterxml.jackson.module" % "jackson-module-scala_2.10" % "2.5.2",
-  "com.fasterxml.jackson.core" % "jackson-core" % "2.5.3",
+  "com.typesafe" % "config" % "1.3.0",
+  "com.fasterxml.jackson.module" %% "jackson-module-scala" % "2.6.3",
   "org.scalatest" %% "scalatest" % "2.2.4" % "test",
+  "net.databinder.dispatch" %% "dispatch-core" % "0.11.2",
   CrossVersion.partialVersion(scalaVersion.value) match {
     case Some((2, scalaMajor)) if scalaMajor >= 11 =>
       "net.ceedubs" %% "ficus" % "1.1.2"
@@ -21,6 +21,8 @@ libraryDependencies ++= Seq(
 
 scalacOptions ++= Seq("-feature", "-deprecation")
 
+scalariformSettings
+
 publishTo := {
   val nexus = "http://nexus.lvxingpai.com/content/repositories/"
   if (isSnapshot.value)
@@ -28,5 +30,3 @@ publishTo := {
   else
     Some("publishReleases" at nexus + "releases")
 }
-
-scalariformSettings
