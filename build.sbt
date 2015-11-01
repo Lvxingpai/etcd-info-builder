@@ -22,11 +22,3 @@ libraryDependencies ++= Seq(
 scalacOptions ++= Seq("-feature", "-deprecation")
 
 scalariformSettings
-
-publishTo := {
-  val nexus = "http://nexus.lvxingpai.com/content/repositories/"
-  if (isSnapshot.value)
-    Some("publishSnapshots" at nexus + "snapshots")
-  else
-    Some("publishReleases" at nexus + "releases")
-}
