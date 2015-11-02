@@ -82,7 +82,7 @@ class EtcdServiceBuilder(host: String, port: Int, schema: String = "http", auth:
       // 将所有的key对应的配置项目列表汇总
       configItems.foldLeft(ConfigFactory.empty) {
         case (c, (path, node)) =>
-          c.withValue(path, node)
+          c.withValue(s"backends.$path", node)
       }
     }
   }
