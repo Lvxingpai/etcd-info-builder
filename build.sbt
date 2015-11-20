@@ -2,7 +2,7 @@ name := """etcd-store"""
 
 organization := "com.lvxingpai"
 
-version := "0.4.1-SNAPSHOT"
+version := "0.4.2"
 
 scalaVersion := "2.11.4"
 
