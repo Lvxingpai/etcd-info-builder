@@ -24,7 +24,8 @@ package com.lvxingpai.etcd
 
 import com.fasterxml.jackson.databind.JsonNode
 import com.fasterxml.jackson.databind.node.JsonNodeFactory
-import com.typesafe.config.{ Config, ConfigFactory, ConfigValue, ConfigValueFactory }
+import com.lvxingpai.configuration.Configuration
+import com.typesafe.config.{ ConfigFactory, ConfigValueFactory, ConfigValue }
 import dispatch.Future
 
 import scala.collection.JavaConversions._
@@ -41,7 +42,7 @@ class EtcdServiceBuilder(host: String, port: Int, schema: String = "http", auth:
    * 返回配置信息
    * @return
    */
-  override def build()(implicit executor: ExecutionContext): Future[Config] = {
+  override def build()(implicit executor: ExecutionContext): Future[Configuration] = {
     val jsonFactory = new JsonNodeFactory(false)
 
     // 从nodes列表，获得整个service的入口信息
@@ -53,8 +54,10 @@ class EtcdServiceBuilder(host: String, port: Int, schema: String = "http", auth:
         val nodeName = (Option(entry get "key") map (_.asText) getOrElse "" split "/").last
         val ret = Option(entry get "value") map (_.asText) getOrElse "" split ":"
         if (ret.length == 2) {
-          Seq(s"$nodeName.host" -> ConfigValueFactory.fromAnyRef(ret.head),
-            s"$nodeName.port" -> ConfigValueFactory.fromAnyRef(ret.last.toInt))
+          Seq(
+            s"$nodeName.host" -> ConfigValueFactory.fromAnyRef(ret.head),
+            s"$nodeName.port" -> ConfigValueFactory.fromAnyRef(ret.last.toInt)
+          )
         } else {
           Seq()
         }
@@ -68,10 +71,10 @@ class EtcdServiceBuilder(host: String, port: Int, schema: String = "http", auth:
       etcdData <- fetchEtcdData(key => s"/v2/keys/backends/$key?recursive=true")
     } yield {
       // 获得所有的配置项目
-      val configItems = etcdData.entrySet().toSeq flatMap (entry => {
-        val key = entry.getKey
+      val configItems = etcdData flatMap (entry => {
+        val key = entry._1
         val alias = aliasMap(key)
-        val node = entry.getValue
+        val node = entry._2
 
         buildServiceEntries(node) map {
           case (entryKey, configItem) =>
@@ -80,9 +83,9 @@ class EtcdServiceBuilder(host: String, port: Int, schema: String = "http", auth:
       })
 
       // 将所有的key对应的配置项目列表汇总
-      configItems.foldLeft(ConfigFactory.empty) {
+      configItems.foldLeft(Configuration.empty) {
         case (c, (path, node)) =>
-          c.withValue(s"services.$path", node)
+          c ++ Configuration(s"services.$path" -> node)
       }
     }
   }
