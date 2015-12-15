@@ -9,7 +9,7 @@ scalaVersion := "2.11.4"
 crossScalaVersions := "2.10.4" :: "2.11.4" :: Nil
 
 libraryDependencies ++= Seq(
-  "com.lvxingpai" %% "configuration" % "0.1.1-SNAPSHOT",
+  "com.lvxingpai" %% "configuration" % "0.1.2",
   "com.fasterxml.jackson.module" %% "jackson-module-scala" % "2.6.3",
   "org.scalatest" %% "scalatest" % "2.2.4" % "test",
   "net.databinder.dispatch" %% "dispatch-core" % "0.11.3",
