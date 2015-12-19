@@ -24,7 +24,8 @@ package com.lvxingpai.etcd
 
 import com.fasterxml.jackson.databind.JsonNode
 import com.fasterxml.jackson.databind.node.{ JsonNodeFactory, NullNode }
-import com.typesafe.config.{ Config, ConfigFactory, ConfigValue, ConfigValueFactory }
+import com.lvxingpai.configuration.Configuration
+import com.typesafe.config.{ ConfigValueFactory, ConfigValue, ConfigFactory }
 import dispatch.Future
 
 import scala.collection.JavaConversions._
@@ -95,7 +96,7 @@ class EtcdConfBuilder(host: String, port: Int, schema: String = "http", auth: Op
    * 返回配置信息
    * @return
    */
-  override def build()(implicit executor: ExecutionContext): Future[Config] = {
+  override def build()(implicit executor: ExecutionContext): Future[Configuration] = {
 
     // 得到key和alias之间的关系
     val aliasMap = Map(this.keys.toSeq: _*)
@@ -104,18 +105,18 @@ class EtcdConfBuilder(host: String, port: Int, schema: String = "http", auth: Op
       etcdData <- fetchEtcdData(key => s"/v2/keys/project-conf/$key?recursive=true")
     } yield {
       // 将所有的key对应的配置项目列表汇总
-      val configItems = etcdData.entrySet().toSeq flatMap (entry => {
-        val key = entry.getKey
+      val configItems = etcdData flatMap (entry => {
+        val key = entry._1
         val alias = aliasMap(key)
-        val node = entry.getValue
+        val node = entry._2
         // 获得一系列配置项目
         walkNode(node, Some(alias))
       })
 
       // 由汇总的配置项目列表，获得最终的Config对象
-      configItems.foldLeft(ConfigFactory.empty) {
+      configItems.foldLeft(Configuration.empty) {
         case (c, (path, node)) =>
-          c.withValue(path, node)
+          c ++ Configuration(path -> node)
       }
     }
   }

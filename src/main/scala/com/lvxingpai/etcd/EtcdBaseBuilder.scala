@@ -23,7 +23,7 @@
 package com.lvxingpai.etcd
 
 import com.fasterxml.jackson.databind.{ JsonNode, ObjectMapper }
-import com.typesafe.config.Config
+import com.lvxingpai.configuration.Configuration
 import dispatch._
 
 import scala.concurrent.ExecutionContext
@@ -62,7 +62,7 @@ abstract class EtcdBaseBuilder(host: String, port: Int, schema: String = "http",
    * 从etcd服务器获得原始的JSON数据
    * @param pathBuilder 给定一个key，获得相应的path
    */
-  protected def fetchEtcdData(pathBuilder: (String => String))(implicit executor: ExecutionContext): Future[Map[String, JsonNode]] = {
+  protected def fetchEtcdData(pathBuilder: (String => String))(implicit executor: ExecutionContext): Future[Seq[(String, JsonNode)]] = {
     // 获得某个具体的key的内容
     def fetchEntry(key: String): Future[(String, JsonNode)] = {
       val etcdUrl = s"${this.schema}://${this.host}:${this.port}" + pathBuilder(key)
@@ -88,12 +88,12 @@ abstract class EtcdBaseBuilder(host: String, port: Int, schema: String = "http",
     // 针对每一个key，都要请求etcd数据库，获取相应的值
     Future.sequence(this.keys.toSeq map {
       case (key, _) => fetchEntry(key)
-    }) map (v => Map(v: _*))
+    })
   }
 
   /**
    * 返回配置信息
    * @return
    */
-  def build()(implicit executor: ExecutionContext): Future[Config]
+  def build()(implicit executor: ExecutionContext): Future[Configuration]
 }
